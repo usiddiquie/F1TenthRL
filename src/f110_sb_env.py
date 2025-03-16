@@ -37,7 +37,7 @@ class F110_SB_Env(gymnasium.Env):
     C_Sr = 5.4562 * 0.7
     M = 3.74
     I = 0.04712
-    RECALL = 30
+    RECALL = 20
 
 
     def __init__(
@@ -292,16 +292,26 @@ class F110_SB_Env(gymnasium.Env):
     def _transform_obs_and_info_for_sb(
         self, obs, info, idx=EGO_IDX
     ) -> typing.Tuple[dict, dict]:
-        scans = obs["scans"][idx]
         # scans = np.concatenate((scans, [scans[-1]]))
 
+        # This function is called every 0.01 seconds
+        # We get the previous scan from -RECALL
+        # time delta = TICK_RATE * RECALL (0.01 * 20 = 0.2)
+        # Max velocity = 5
+        # Max distance = 5 * 0.2 = 1
+        # Safe = 2
+
+        scans = obs["scans"][idx]
+        previous_scans = self._previous_scans[0] if len(self._previous_scans) else scans
+
+        dists = scans - previous_scans
+        dists_normalized = self._map_value(dists, (-2, 2), (0, 1))
+
         scaled_scans = scans / self._max_range
-        scaled_previous_scans = self._previous_scans[0] / self._max_range if len(self._previous_scans) else scaled_scans
         
         transformed_obs = {
             "scan": scaled_scans,
-            "previous_scan": scaled_previous_scans
-            # "linear_vel_x": obs["linear_vels_x"][idx] / self._v_max,
+            "previous_scan": dists_normalized
         }
 
         transformed_info = {
